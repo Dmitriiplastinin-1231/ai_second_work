@@ -13,7 +13,7 @@ from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 
 TARGET_COL = "salary_mean_net"
-MAX_TFIDF_FEATURES = 20000
+MAX_TF_IDF_FEATURES = 20000
 MIN_SALARY = 0
 
 
@@ -104,7 +104,7 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
                         (
                             "tfidf",
                             TfidfVectorizer(
-                                max_features=MAX_TFIDF_FEATURES,
+                                max_features=MAX_TF_IDF_FEATURES,
                                 ngram_range=(1, 2),
                                 min_df=2,
                             ),
@@ -155,9 +155,6 @@ def main() -> None:
     train = read_table(train_path)
     test = read_table(test_path)
 
-    if TARGET_COL not in train.columns:
-        raise ValueError(f"Target column '{TARGET_COL}' not found in {train_path}.")
-
     y = train[TARGET_COL].astype(float)
     test_cols = set(test.columns)
     train_features = [col for col in train.columns if col != TARGET_COL]
@@ -173,6 +170,7 @@ def main() -> None:
     model.fit(X_train, y)
 
     preds = model.predict(X_test)
+    # Salary cannot be negative in the competition metric.
     preds = np.maximum(preds, MIN_SALARY)
 
     submission = pd.DataFrame(
