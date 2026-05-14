@@ -70,7 +70,7 @@ def discover_train_test(data_dir: Path) -> tuple[Path, Path]:
 
 def combine_text(df: pd.DataFrame) -> pd.Series:
     if df.empty:
-        return pd.Series([""] * len(df))
+        return pd.Series("", index=df.index)
     return df.fillna("").astype(str).agg(" ".join, axis=1)
 
 
@@ -102,7 +102,7 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
                         (
                             "tfidf",
                             TfidfVectorizer(
-                                max_features=50000,
+                                max_features=20000,
                                 ngram_range=(1, 2),
                                 min_df=2,
                             ),
@@ -126,7 +126,7 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
     )
 
 
-def get_id_values(test: pd.DataFrame) -> pd.Series:
+def resolve_id_column(test: pd.DataFrame) -> pd.Series:
     for candidate in ["ID", "id", "index"]:
         if candidate in test.columns:
             return test[candidate]
@@ -157,7 +157,8 @@ def main() -> None:
         raise ValueError(f"Target column '{TARGET_COL}' not found in {train_path}.")
 
     y = train[TARGET_COL].astype(float)
-    feature_cols = [col for col in train.columns if col in test.columns and col != TARGET_COL]
+    test_cols = set(test.columns)
+    feature_cols = [col for col in train.columns if col in test_cols and col != TARGET_COL]
     if not feature_cols:
         raise ValueError("No shared feature columns between train and test.")
 
@@ -172,7 +173,7 @@ def main() -> None:
 
     submission = pd.DataFrame(
         {
-            "ID": get_id_values(test).values,
+            "ID": resolve_id_column(test).values,
             TARGET_COL: preds,
         }
     )
