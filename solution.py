@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -172,7 +173,24 @@ def main():
         default=1.0,
         help="Ridge regularization strength (alpha parameter).",
     )
-    args, _ = parser.parse_known_args()
+    args, unknown = parser.parse_known_args()
+    filtered_unknown = []
+    skip_next = False
+    for arg in unknown:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg == "-f":
+            skip_next = True
+            continue
+        if arg.startswith("-f"):
+            continue
+        filtered_unknown.append(arg)
+    if filtered_unknown:
+        print(
+            f"Warning: ignoring unknown arguments: {filtered_unknown}",
+            file=sys.stderr,
+        )
 
     base_dir = Path(".")
     train_path = Path(args.train) if args.train else None
