@@ -75,7 +75,10 @@ def _load_training_data(train_path, target_path, target_col):
     elif train_y.shape[1] == 1:
         y = train_y.iloc[:, 0]
     else:
-        raise ValueError("Target file should contain a single column or target name.")
+        raise ValueError(
+            "Target file must contain a single column or "
+            f"'{target_col}', got {train_y.shape[1]} columns."
+        )
     return train_x, y
 
 
@@ -133,7 +136,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Salaries cannot be negative, so clamp to zero.
+    # Use zero as a safe lower bound for invalid or negative predictions.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
@@ -146,7 +149,12 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
 
 def main():
     parser = argparse.ArgumentParser(description="Train salary model and create submission.")
-    parser.add_argument("--train", type=str, default=None, help="Path to training CSV.")
+    parser.add_argument(
+        "--train",
+        type=str,
+        default=None,
+        help="Path to training CSV (auto-discovered if omitted).",
+    )
     parser.add_argument("--train-target", type=str, default=None, help="Path to target CSV.")
     parser.add_argument("--test", type=str, default=None, help="Path to test CSV.")
     parser.add_argument("--output", type=str, default="submission.csv", help="Output CSV.")
