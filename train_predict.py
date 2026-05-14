@@ -14,6 +14,7 @@ from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 TARGET_COL = "salary_mean_net"
 MAX_TFIDF_FEATURES = 20000
+MIN_SALARY = 0
 
 
 def list_data_files(data_dir: Path) -> list[Path]:
@@ -49,7 +50,7 @@ def discover_train_test(data_dir: Path) -> tuple[Path, Path]:
     for path in data_files:
         columns = read_table_columns(path)
         columns_map[path] = columns
-        if TARGET_COL in columns:
+        if TARGET_COL in columns and train_path is None:
             train_path = path
         elif "test" in path.name.lower() and test_path is None:
             test_path = path
@@ -172,7 +173,7 @@ def main() -> None:
     model.fit(X_train, y)
 
     preds = model.predict(X_test)
-    preds = np.maximum(preds, 0)
+    preds = np.maximum(preds, MIN_SALARY)
 
     submission = pd.DataFrame(
         {
