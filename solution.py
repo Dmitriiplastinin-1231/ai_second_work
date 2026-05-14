@@ -24,9 +24,10 @@ def _join_text_columns(frame):
 
 
 def _detect_id_column(columns):
-    for candidate in ("id", "ID"):
-        if candidate in columns:
-            return candidate
+    for column in columns:
+        column_lower = column.lower()
+        if column_lower in {"id", "row_id"}:
+            return column
     return None
 
 
@@ -95,7 +96,6 @@ def _build_pipeline(text_cols, num_cols, alpha):
                     TfidfVectorizer(
                         max_features=MAX_TFIDF_FEATURES,
                         ngram_range=(1, 2),
-                        min_df=1,
                     ),
                 ),
             ]
@@ -137,7 +137,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Salaries cannot be negative; clip to zero to keep outputs valid.
+    # Salaries cannot be negative; clip negative predictions to zero.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
@@ -149,7 +149,9 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train salary model and create submission.")
+    parser = argparse.ArgumentParser(
+        description="Train salary model and create submission."
+    )
     parser.add_argument(
         "--train",
         type=str,
