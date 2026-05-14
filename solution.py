@@ -137,7 +137,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Salaries cannot be negative; clip negative predictions to zero.
+    # Salaries cannot be negative; clip as a safeguard even if defaults change.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
@@ -158,10 +158,20 @@ def main():
         default=None,
         help="Path to training CSV (auto-discovered if omitted).",
     )
-    parser.add_argument("--train-target", type=str, default=None, help="Path to target CSV.")
+    parser.add_argument(
+        "--train-target",
+        type=str,
+        default=None,
+        help="Path to separate target CSV (when features and labels are split).",
+    )
     parser.add_argument("--test", type=str, default=None, help="Path to test CSV.")
     parser.add_argument("--output", type=str, default="submission.csv", help="Output CSV.")
-    parser.add_argument("--alpha", type=float, default=1.0, help="Ridge regularization.")
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Ridge regularization strength (alpha parameter).",
+    )
     args = parser.parse_args()
 
     base_dir = Path(".")
