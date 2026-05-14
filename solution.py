@@ -82,7 +82,7 @@ def _filter_notebook_args(unknown_args):
 def _candidate_base_dirs(base_dir):
     """Возвращает список каталогов для поиска данных, без повторов.
 
-    Учитываем текущую папку и типичное расположение входных данных в Kaggle.
+    Учитываем текущую папку и расположение входных данных в Kaggle.
     """
     candidates = [base_dir]
     if KAGGLE_INPUT_DIR.exists():
