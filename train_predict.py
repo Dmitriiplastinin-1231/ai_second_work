@@ -44,23 +44,17 @@ def discover_train_test(data_dir: Path) -> tuple[Path, Path]:
 
     train_path = None
     test_path = None
+    columns_map: dict[Path, list[str]] = {}
     for path in data_files:
         columns = read_table_columns(path)
+        columns_map[path] = columns
         if TARGET_COL in columns:
             train_path = path
         elif "test" in path.name.lower() and test_path is None:
             test_path = path
 
-    if train_path is None:
-        for path in data_files:
-            columns = read_table_columns(path)
-            if TARGET_COL in columns:
-                train_path = path
-                break
-
     if test_path is None:
-        for path in data_files:
-            columns = read_table_columns(path)
+        for path, columns in columns_map.items():
             if TARGET_COL not in columns:
                 test_path = path
                 break
@@ -92,7 +86,7 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
                 Pipeline(
                     [
                         ("imputer", SimpleImputer(strategy="median")),
-                        ("scaler", StandardScaler(with_mean=False)),
+                        ("scaler", StandardScaler()),
                     ]
                 ),
                 numeric_cols,
@@ -110,7 +104,7 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
                             TfidfVectorizer(
                                 max_features=50000,
                                 ngram_range=(1, 2),
-                                min_df=1,
+                                min_df=2,
                             ),
                         ),
                     ]
