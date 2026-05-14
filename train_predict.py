@@ -13,6 +13,7 @@ from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 
 TARGET_COL = "salary_mean_net"
+MAX_TFIDF_FEATURES = 20000
 
 
 def list_data_files(data_dir: Path) -> list[Path]:
@@ -102,7 +103,7 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
                         (
                             "tfidf",
                             TfidfVectorizer(
-                                max_features=20000,
+                                max_features=MAX_TFIDF_FEATURES,
                                 ngram_range=(1, 2),
                                 min_df=2,
                             ),
@@ -121,7 +122,7 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
     return Pipeline(
         [
             ("prep", preprocess),
-            ("model", Ridge(alpha=1.0, random_state=42)),
+            ("model", Ridge(alpha=1.0)),
         ]
     )
 
@@ -158,7 +159,9 @@ def main() -> None:
 
     y = train[TARGET_COL].astype(float)
     test_cols = set(test.columns)
-    feature_cols = [col for col in train.columns if col in test_cols and col != TARGET_COL]
+    train_features = [col for col in train.columns if col != TARGET_COL]
+    shared_cols = set(train_features) & test_cols
+    feature_cols = [col for col in train_features if col in shared_cols]
     if not feature_cols:
         raise ValueError("No shared feature columns between train and test.")
 
