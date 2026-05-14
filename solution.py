@@ -138,7 +138,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Salaries cannot be negative; clip as a safeguard even if defaults change.
+    # Salaries cannot be negative; clip as a safeguard if DEFAULT_PREDICTION changes.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
@@ -174,7 +174,7 @@ def main():
         help="Ridge regularization strength (alpha parameter).",
     )
     args, unknown = parser.parse_known_args()
-    filtered_unknown = []
+    unrecognized_args = []
     index = 0
     while index < len(unknown):
         arg = unknown[index]
@@ -186,11 +186,11 @@ def main():
                     continue
             index += 1
             continue
-        filtered_unknown.append(arg)
+        unrecognized_args.append(arg)
         index += 1
-    if filtered_unknown:
+    if unrecognized_args:
         print(
-            f"Warning: ignoring unknown arguments: {filtered_unknown}",
+            f"Warning: ignoring unknown arguments: {unrecognized_args}",
             file=sys.stderr,
         )
 
