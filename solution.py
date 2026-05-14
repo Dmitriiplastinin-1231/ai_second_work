@@ -16,6 +16,8 @@ DEFAULT_TEST_FILE = "test_x.csv"
 DEFAULT_PREDICTION = 0.0
 MAX_TFIDF_FEATURES = 50000
 NOTEBOOK_CONNECTION_FLAG = "-f"
+KAGGLE_INPUT_DIR = Path("/kaggle/input")
+KAGGLE_WORKING_DIR = Path("/kaggle/working")
 # Jupyter kernels pass connection-related arguments with these prefixes.
 NOTEBOOK_ARG_PREFIXES = (
     "--ip",
@@ -65,6 +67,34 @@ def _filter_notebook_args(unknown_args):
     return unrecognized_args
 
 
+def _candidate_base_dirs(base_dir):
+    """Return directories to scan for data files."""
+    candidates = [base_dir]
+    if KAGGLE_INPUT_DIR.exists():
+        candidates.append(KAGGLE_INPUT_DIR)
+        candidates.extend(
+            path for path in KAGGLE_INPUT_DIR.iterdir() if path.is_dir()
+        )
+    seen = set()
+    ordered = []
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved in seen or not path.exists():
+            continue
+        seen.add(resolved)
+        ordered.append(path)
+    return ordered
+
+
+def _iter_csv_candidates(base_dir):
+    if base_dir == Path("."):
+        return base_dir.glob("*.csv")
+    return base_dir.rglob("*.csv")
+
+
 def _find_train_paths(base_dir, target_col):
     """Locate training data files and return (train_path, target_path)."""
     preferred = [
@@ -81,7 +111,7 @@ def _find_train_paths(base_dir, target_col):
     if train_x.exists() and train_y.exists():
         return train_x, train_y
 
-    for path in base_dir.glob("*.csv"):
+    for path in _iter_csv_candidates(base_dir):
         if path.name in {DEFAULT_TEST_FILE, "sample_submission.csv"}:
             continue
         try:
@@ -91,6 +121,32 @@ def _find_train_paths(base_dir, target_col):
         if target_col in sample_cols:
             return path, None
     return None, None
+
+
+def _find_training_data(base_dirs, target_col):
+    for base_dir in base_dirs:
+        train_path, target_path = _find_train_paths(base_dir, target_col)
+        if train_path is not None:
+            return train_path, target_path
+    return None, None
+
+
+def _find_test_path(base_dirs):
+    for base_dir in base_dirs:
+        candidate = base_dir / DEFAULT_TEST_FILE
+        if candidate.exists():
+            return candidate
+    for base_dir in base_dirs:
+        candidates = sorted(base_dir.glob("*test*.csv"))
+        if candidates:
+            return candidates[0]
+    for base_dir in base_dirs:
+        if base_dir == Path("."):
+            continue
+        candidates = sorted(base_dir.rglob("*test*.csv"))
+        if candidates:
+            return candidates[0]
+    return None
 
 
 def _load_training_data(train_path, target_path, target_col):
@@ -155,6 +211,19 @@ def _build_pipeline(text_cols, num_cols, alpha):
     )
 
 
+def _align_feature_frames(train_df, test_df):
+    train_df = train_df.copy()
+    test_df = test_df.copy()
+    missing_cols = [col for col in train_df.columns if col not in test_df.columns]
+    for col in missing_cols:
+        test_df[col] = np.nan
+    extra_cols = [col for col in test_df.columns if col not in train_df.columns]
+    if extra_cols:
+        test_df = test_df.drop(columns=extra_cols)
+    test_df = test_df[train_df.columns]
+    return train_df, test_df
+
+
 def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
     """Fit the model and return (ids, predictions) for the test set."""
     id_column = id_column or _detect_id_column(test_df.columns)
@@ -165,6 +234,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
     )
     x_train = train_df.drop(columns=drop_columns)
     x_test = test_df.drop(columns=[id_column]) if id_column else test_df.copy()
+    x_train, x_test = _align_feature_frames(x_train, x_test)
 
     text_cols = [col for col in x_train.columns if x_train[col].dtype == object]
     num_cols = [col for col in x_train.columns if col not in text_cols]
@@ -229,19 +299,23 @@ def main():
         )
 
     base_dir = Path(".")
+    base_dirs = _candidate_base_dirs(base_dir)
     train_path = Path(args.train) if args.train else None
     target_path = Path(args.train_target) if args.train_target else None
 
     if train_path is None:
-        train_path, target_path = _find_train_paths(base_dir, TARGET_COLUMN)
+        train_path, target_path = _find_training_data(
+            base_dirs, TARGET_COLUMN
+        )
 
-    test_path = Path(args.test) if args.test else base_dir / DEFAULT_TEST_FILE
-    if not test_path.exists():
-        candidates = list(base_dir.glob("*test*.csv"))
-        if candidates:
-            test_path = candidates[0]
-        else:
-            raise FileNotFoundError("Test data file was not found.")
+    if train_path is None or not train_path.exists():
+        raise FileNotFoundError("Training data file was not found.")
+    if target_path is not None and not target_path.exists():
+        raise FileNotFoundError("Training target file was not found.")
+
+    test_path = Path(args.test) if args.test else _find_test_path(base_dirs)
+    if test_path is None or not test_path.exists():
+        raise FileNotFoundError("Test data file was not found.")
 
     x_train, y_train = _load_training_data(train_path, target_path, TARGET_COLUMN)
     test_df = pd.read_csv(test_path)
@@ -253,8 +327,11 @@ def main():
 
     output_id_col = ids.name or id_col or "ID"
     submission = pd.DataFrame({output_id_col: ids, TARGET_COLUMN: predictions})
-    submission.to_csv(args.output, index=False)
-    print(f"Saved submission to {args.output}")
+    output_path = Path(args.output)
+    if args.output == "submission.csv" and KAGGLE_WORKING_DIR.exists():
+        output_path = KAGGLE_WORKING_DIR / args.output
+    submission.to_csv(output_path, index=False)
+    print(f"Saved submission to {output_path}")
 
 
 if __name__ == "__main__":
