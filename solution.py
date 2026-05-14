@@ -172,7 +172,7 @@ def main():
         default=1.0,
         help="Ridge regularization strength (alpha parameter).",
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     base_dir = Path(".")
     train_path = Path(args.train) if args.train else None
