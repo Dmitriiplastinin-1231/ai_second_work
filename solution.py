@@ -192,8 +192,8 @@ def main():
             continue
         if arg == "-f":
             if index + 1 < len(unknown):
-                notebook_kernel_file = unknown[index + 1]
-                if not notebook_kernel_file.startswith("-"):
+                next_arg = unknown[index + 1]
+                if not next_arg.startswith("-"):
                     skip_notebook_arg_value = True
             continue
         if arg.startswith(notebook_prefixes):
