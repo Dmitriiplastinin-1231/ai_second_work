@@ -18,7 +18,9 @@ MAX_TFIDF_FEATURES = 50000
 NOTEBOOK_CONNECTION_FLAG = "-f"
 KAGGLE_INPUT_DIR = Path("/kaggle/input")
 KAGGLE_WORKING_DIR = Path("/kaggle/working")
-# Jupyter kernels pass connection-related arguments with these prefixes.
+# Ядро Jupyter передает служебные аргументы подключения с такими префиксами,
+# их нужно отфильтровать, чтобы парсер не считал их пользовательскими.
+# Это защищает CLI от ложных ошибок при запуске в ноутбуке.
 NOTEBOOK_ARG_PREFIXES = (
     "--ip",
     "--stdin",
@@ -32,14 +34,21 @@ NOTEBOOK_ARG_PREFIXES = (
 
 
 def _join_text_columns(frame):
-    """Join text columns into a single string per row."""
+    """Склеивает все текстовые столбцы в одну строку на запись.
+
+    Так мы получаем единый текстовый признак, который удобно отдавать
+    в TF-IDF без ручного объединения колонок.
+    """
     if isinstance(frame, np.ndarray):
         frame = pd.DataFrame(frame)
     return frame.fillna("").astype(str).agg(" ".join, axis=1)
 
 
 def _detect_id_column(columns):
-    """Find a likely ID column name from a list of columns, or None."""
+    """Ищет вероятный столбец идентификатора (id/row_id).
+
+    Если ничего похожего нет, возвращает None и работаем без явного ID.
+    """
     for column in columns:
         column_lower = column.lower()
         if column_lower in {"id", "row_id"}:
@@ -48,7 +57,10 @@ def _detect_id_column(columns):
 
 
 def _filter_notebook_args(unknown_args):
-    """Filter out Jupyter kernel args and keep only real unknown arguments."""
+    """Отбрасывает служебные аргументы Jupyter, оставляя только реальные.
+
+    Возвращаем список параметров, о которых действительно стоит предупреждать.
+    """
     unrecognized_args = []
     skip_notebook_arg_value = False
     for index, arg in enumerate(unknown_args):
@@ -68,7 +80,10 @@ def _filter_notebook_args(unknown_args):
 
 
 def _candidate_base_dirs(base_dir):
-    """Return directories to scan for data files."""
+    """Возвращает список каталогов для поиска данных, без повторов.
+
+    Учитываем текущую папку и типичное расположение входных данных в Kaggle.
+    """
     candidates = [base_dir]
     if KAGGLE_INPUT_DIR.exists():
         candidates.append(KAGGLE_INPUT_DIR)
@@ -90,14 +105,22 @@ def _candidate_base_dirs(base_dir):
 
 
 def _iter_csv_candidates(base_dir):
-    """Yield CSV files, using shallow glob for cwd and recursive for others."""
+    """Итерирует CSV-файлы с разной глубиной поиска.
+
+    В текущей папке берем только верхний уровень, чтобы не сканировать
+    случайные большие директории; в остальных местах идем рекурсивно.
+    """
     if base_dir == Path("."):
         return base_dir.glob("*.csv")
     return base_dir.rglob("*.csv")
 
 
 def _find_train_paths(base_dir, target_col):
-    """Locate training data files and return (train_path, target_path)."""
+    """Ищет train-файлы и возвращает (train_path, target_path).
+
+    Сначала проверяем стандартные имена, затем пару train_x/train_y,
+    а дальше пытаемся найти CSV с целевой колонкой.
+    """
     preferred = [
         base_dir / "train.csv",
         base_dir / "train_data.csv",
@@ -156,7 +179,10 @@ def _find_test_path(base_dirs):
 
 
 def _load_training_data(train_path, target_path, target_col):
-    """Load training features and targets from CSV files."""
+    """Загружает признаки и целевую переменную из train CSV.
+
+    Поддерживает как один общий train, так и раздельные train_x/train_y.
+    """
     if train_path is None:
         raise FileNotFoundError("Training data file was not found.")
 
@@ -184,7 +210,10 @@ def _load_training_data(train_path, target_path, target_col):
 
 
 def _build_pipeline(text_cols, num_cols, alpha):
-    """Build a preprocessing + Ridge regression pipeline."""
+    """Собирает пайплайн предобработки и Ridge-регрессии.
+
+    Текст превращаем в TF-IDF, числа заполняем медианой, затем объединяем.
+    """
     transformers = []
 
     if text_cols:
@@ -219,7 +248,10 @@ def _build_pipeline(text_cols, num_cols, alpha):
 
 
 def _align_feature_frames(train_df, test_df):
-    """Align test columns to train columns, filling missing with NaN."""
+    """Выравнивает признаки теста под train, добавляя пропуски как NaN.
+
+    Лишние колонки удаляем, а порядок приводим к train, чтобы модель не путалась.
+    """
     train_df = train_df.copy()
     test_df = test_df.copy()
     missing_cols = [col for col in train_df.columns if col not in test_df.columns]
@@ -233,7 +265,10 @@ def _align_feature_frames(train_df, test_df):
 
 
 def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
-    """Fit the model and return (ids, predictions) for the test set."""
+    """Обучает модель и возвращает идентификаторы и прогнозы для теста.
+
+    Умеет работать с опциональным столбцом ID и регуляризацией Ridge.
+    """
     id_column = id_column or _detect_id_column(test_df.columns)
     if id_column and id_column not in test_df.columns:
         id_column = None
@@ -257,7 +292,8 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Salaries cannot be negative; clip model predictions to zero minimum.
+    # Зарплата не бывает отрицательной, поэтому обрезаем прогнозы снизу до нуля.
+    # Верхнюю границу не ограничиваем, чтобы не портить большие значения.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
@@ -269,7 +305,10 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
 
 
 def main():
-    """CLI entry point for training a salary model and writing submissions."""
+    """CLI-точка входа: ищет данные, обучает модель и пишет submission.
+
+    Подходит для запуска как локально, так и в окружении Kaggle.
+    """
     parser = argparse.ArgumentParser(
         description="Train salary model and create submission."
     )
