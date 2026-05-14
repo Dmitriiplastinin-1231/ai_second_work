@@ -175,16 +175,29 @@ def main():
     )
     args, unknown = parser.parse_known_args()
     unrecognized_args = []
-    skip_next = False
+    skip_notebook_arg_value = False
+    notebook_prefixes = (
+        "--ip",
+        "--stdin",
+        "--control",
+        "--shell",
+        "--transport",
+        "--iopub",
+        "--hb",
+        "--Session.",
+    )
     for index, arg in enumerate(unknown):
-        if skip_next:
-            skip_next = False
+        if skip_notebook_arg_value:
+            skip_notebook_arg_value = False
             continue
-        if arg == "-f" and index + 1 < len(unknown):
-            next_arg = unknown[index + 1]
-            if not next_arg.startswith("-"):
-                skip_next = True
-                continue
+        if arg == "-f":
+            if index + 1 < len(unknown):
+                notebook_kernel_file = unknown[index + 1]
+                if not notebook_kernel_file.startswith("-"):
+                    skip_notebook_arg_value = True
+            continue
+        if arg.startswith(notebook_prefixes):
+            continue
         unrecognized_args.append(arg)
     if unrecognized_args:
         print(
