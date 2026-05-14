@@ -39,7 +39,7 @@ def _join_text_columns(frame):
 
 
 def _detect_id_column(columns):
-    """Find a likely ID column name from a list of columns."""
+    """Find a likely ID column name from a list of columns, or None."""
     for column in columns:
         column_lower = column.lower()
         if column_lower in {"id", "row_id"}:
@@ -90,6 +90,7 @@ def _candidate_base_dirs(base_dir):
 
 
 def _iter_csv_candidates(base_dir):
+    """Yield CSV files, using shallow glob for cwd and recursive for others."""
     if base_dir == Path("."):
         return base_dir.glob("*.csv")
     return base_dir.rglob("*.csv")
@@ -217,6 +218,7 @@ def _build_pipeline(text_cols, num_cols, alpha):
 
 
 def _align_feature_frames(train_df, test_df):
+    """Align test columns to train columns, filling missing with NaN."""
     train_df = train_df.copy()
     test_df = test_df.copy()
     missing_cols = [col for col in train_df.columns if col not in test_df.columns]
@@ -254,7 +256,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Salaries cannot be negative; clip model predictions to keep outputs valid.
+    # Salaries cannot be negative; clip model predictions to zero minimum.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
