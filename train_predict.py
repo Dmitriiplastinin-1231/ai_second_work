@@ -1,15 +1,16 @@
 import argparse
-import os
+import csv
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, StandardScaler
+from sklearn.preprocessing import StandardScaler
 
 
 TARGET_COL = "salary_mean_net"
@@ -17,7 +18,7 @@ MAX_TF_IDF_FEATURES = 20000
 MIN_SALARY = 0
 
 
-def list_data_files(data_dir: Path) -> list[Path]:
+def list_csv_and_txt_files(data_dir: Path) -> list[Path]:
     patterns = ["*.csv", "*.txt"]
     files: list[Path] = []
     for pattern in patterns:
@@ -25,22 +26,28 @@ def list_data_files(data_dir: Path) -> list[Path]:
     return sorted({file.resolve() for file in files})
 
 
+def detect_delimiter(path: Path) -> str:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            sample = handle.read(4096)
+        return csv.Sniffer().sniff(sample).delimiter
+    except Exception:
+        return ","
+
+
 def read_table_columns(path: Path) -> list[str]:
-    if path.suffix.lower() == ".txt":
-        df = pd.read_csv(path, sep=None, engine="python", nrows=0)
-    else:
-        df = pd.read_csv(path, nrows=0)
+    delimiter = detect_delimiter(path) if path.suffix.lower() == ".txt" else ","
+    df = pd.read_csv(path, sep=delimiter, nrows=0)
     return list(df.columns)
 
 
 def read_table(path: Path) -> pd.DataFrame:
-    if path.suffix.lower() == ".txt":
-        return pd.read_csv(path, sep=None, engine="python", low_memory=False)
-    return pd.read_csv(path, low_memory=False)
+    delimiter = detect_delimiter(path) if path.suffix.lower() == ".txt" else ","
+    return pd.read_csv(path, sep=delimiter, low_memory=False)
 
 
 def discover_train_test(data_dir: Path) -> tuple[Path, Path]:
-    data_files = list_data_files(data_dir)
+    data_files = list_csv_and_txt_files(data_dir)
     if not data_files:
         raise FileNotFoundError(f"No .csv/.txt files found in {data_dir}")
 
@@ -70,10 +77,15 @@ def discover_train_test(data_dir: Path) -> tuple[Path, Path]:
     return train_path, test_path
 
 
-def combine_text(df: pd.DataFrame) -> pd.Series:
-    if df.empty:
-        return pd.Series("", index=df.index)
-    return df.fillna("").astype(str).agg(" ".join, axis=1)
+class TextCombiner(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        df = X if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
+        if df.empty:
+            return pd.Series("", index=df.index)
+        return df.fillna("").astype(str).agg(" ".join, axis=1)
 
 
 def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
@@ -97,13 +109,13 @@ def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
     if text_cols:
         transformers.append(
             (
-                "text",
-                Pipeline(
-                    [
-                        ("combine", FunctionTransformer(combine_text, validate=False)),
-                        (
-                            "tfidf",
-                            TfidfVectorizer(
+                        "text",
+                        Pipeline(
+                            [
+                                ("combine", TextCombiner()),
+                                (
+                                    "tfidf",
+                                    TfidfVectorizer(
                                 max_features=MAX_TF_IDF_FEATURES,
                                 ngram_range=(1, 2),
                                 min_df=2,
@@ -151,6 +163,8 @@ def main() -> None:
 
     data_dir = Path(args.data_dir).resolve()
     train_path, test_path = discover_train_test(data_dir)
+    print(f"Train file: {train_path}")
+    print(f"Test file: {test_path}")
 
     train = read_table(train_path)
     test = read_table(test_path)
