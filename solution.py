@@ -180,12 +180,11 @@ def main():
         if skip_next:
             skip_next = False
             continue
-        if arg.startswith("-f"):
-            if arg == "-f" and index + 1 < len(unknown):
-                next_arg = unknown[index + 1]
-                if not next_arg.startswith("-"):
-                    skip_next = True
-            continue
+        if arg == "-f" and index + 1 < len(unknown):
+            next_arg = unknown[index + 1]
+            if not next_arg.startswith("-"):
+                skip_next = True
+                continue
         unrecognized_args.append(arg)
     if unrecognized_args:
         print(
