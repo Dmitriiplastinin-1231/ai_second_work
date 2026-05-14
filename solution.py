@@ -175,17 +175,19 @@ def main():
     )
     args, unknown = parser.parse_known_args()
     filtered_unknown = []
-    skip_next = False
-    for arg in unknown:
-        if skip_next:
-            skip_next = False
-            continue
-        if arg == "-f":
-            skip_next = True
-            continue
+    index = 0
+    while index < len(unknown):
+        arg = unknown[index]
         if arg.startswith("-f"):
+            if arg == "-f" and index + 1 < len(unknown):
+                next_arg = unknown[index + 1]
+                if not next_arg.startswith("-"):
+                    index += 2
+                    continue
+            index += 1
             continue
         filtered_unknown.append(arg)
+        index += 1
     if filtered_unknown:
         print(
             f"Warning: ignoring unknown arguments: {filtered_unknown}",
