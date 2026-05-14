@@ -13,6 +13,7 @@ from sklearn.preprocessing import FunctionTransformer
 TARGET_COLUMN = "salary_mean_net"
 DEFAULT_TEST_FILE = "test_x.csv"
 DEFAULT_PREDICTION = 0.0
+MAX_TFIDF_FEATURES = 50000
 
 
 def _join_text_columns(frame):
@@ -92,7 +93,7 @@ def _build_pipeline(text_cols, num_cols, alpha):
                 (
                     "tfidf",
                     TfidfVectorizer(
-                        max_features=50000,
+                        max_features=MAX_TFIDF_FEATURES,
                         ngram_range=(1, 2),
                         min_df=1,
                     ),
@@ -136,7 +137,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Use zero as a safe lower bound for invalid or negative predictions.
+    # Use zero as a safe lower bound for negative predictions.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
