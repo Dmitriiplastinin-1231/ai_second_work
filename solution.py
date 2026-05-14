@@ -138,7 +138,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Salaries cannot be negative; clip as a safeguard if DEFAULT_PREDICTION changes.
+    # Salaries cannot be negative; clip model predictions to keep outputs valid.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
@@ -175,19 +175,18 @@ def main():
     )
     args, unknown = parser.parse_known_args()
     unrecognized_args = []
-    index = 0
-    while index < len(unknown):
-        arg = unknown[index]
+    skip_next = False
+    for index, arg in enumerate(unknown):
+        if skip_next:
+            skip_next = False
+            continue
         if arg.startswith("-f"):
             if arg == "-f" and index + 1 < len(unknown):
                 next_arg = unknown[index + 1]
                 if not next_arg.startswith("-"):
-                    index += 2
-                    continue
-            index += 1
+                    skip_next = True
             continue
         unrecognized_args.append(arg)
-        index += 1
     if unrecognized_args:
         print(
             f"Warning: ignoring unknown arguments: {unrecognized_args}",
