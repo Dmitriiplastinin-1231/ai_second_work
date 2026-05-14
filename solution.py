@@ -15,6 +15,16 @@ TARGET_COLUMN = "salary_mean_net"
 DEFAULT_TEST_FILE = "test_x.csv"
 DEFAULT_PREDICTION = 0.0
 MAX_TFIDF_FEATURES = 50000
+NOTEBOOK_ARG_PREFIXES = (
+    "--ip",
+    "--stdin",
+    "--control",
+    "--shell",
+    "--transport",
+    "--iopub",
+    "--hb",
+    "--Session.",
+)
 
 
 def _join_text_columns(frame):
@@ -30,6 +40,25 @@ def _detect_id_column(columns):
         if column_lower in {"id", "row_id"}:
             return column
     return None
+
+
+def _filter_notebook_args(unknown_args):
+    unrecognized_args = []
+    skip_notebook_arg_value = False
+    for index, arg in enumerate(unknown_args):
+        if skip_notebook_arg_value:
+            skip_notebook_arg_value = False
+            continue
+        if arg == "-f":
+            if index + 1 < len(unknown_args):
+                next_arg = unknown_args[index + 1]
+                if not next_arg.startswith("-"):
+                    skip_notebook_arg_value = True
+            continue
+        if arg.startswith(NOTEBOOK_ARG_PREFIXES):
+            continue
+        unrecognized_args.append(arg)
+    return unrecognized_args
 
 
 def _find_train_paths(base_dir, target_col):
@@ -174,31 +203,7 @@ def main():
         help="Ridge regularization strength (alpha parameter).",
     )
     args, unknown = parser.parse_known_args()
-    unrecognized_args = []
-    skip_notebook_arg_value = False
-    notebook_prefixes = (
-        "--ip",
-        "--stdin",
-        "--control",
-        "--shell",
-        "--transport",
-        "--iopub",
-        "--hb",
-        "--Session.",
-    )
-    for index, arg in enumerate(unknown):
-        if skip_notebook_arg_value:
-            skip_notebook_arg_value = False
-            continue
-        if arg == "-f":
-            if index + 1 < len(unknown):
-                next_arg = unknown[index + 1]
-                if not next_arg.startswith("-"):
-                    skip_notebook_arg_value = True
-            continue
-        if arg.startswith(notebook_prefixes):
-            continue
-        unrecognized_args.append(arg)
+    unrecognized_args = _filter_notebook_args(unknown)
     if unrecognized_args:
         print(
             f"Warning: ignoring unknown arguments: {unrecognized_args}",
