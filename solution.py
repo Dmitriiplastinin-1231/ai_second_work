@@ -79,7 +79,7 @@ def _load_training_data(train_path, target_path, target_col):
     return train_x, y
 
 
-def _build_pipeline(text_cols, num_cols):
+def _build_pipeline(text_cols, num_cols, alpha):
     transformers = []
 
     if text_cols:
@@ -109,12 +109,12 @@ def _build_pipeline(text_cols, num_cols):
     return Pipeline(
         steps=[
             ("preprocessor", preprocessor),
-            ("model", Ridge(alpha=1.0)),
+            ("model", Ridge(alpha=alpha)),
         ]
     )
 
 
-def train_and_predict(train_df, target, test_df, id_column=None):
+def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
     id_column = id_column or _detect_id_column(test_df.columns)
     drop_columns = [col for col in [id_column] if col in train_df.columns]
     x_train = train_df.drop(columns=drop_columns)
@@ -123,7 +123,7 @@ def train_and_predict(train_df, target, test_df, id_column=None):
     text_cols = [col for col in x_train.columns if x_train[col].dtype == object]
     num_cols = [col for col in x_train.columns if col not in text_cols]
 
-    model = _build_pipeline(text_cols, num_cols)
+    model = _build_pipeline(text_cols, num_cols, alpha)
     model.fit(x_train, target)
 
     predictions = model.predict(x_test)
@@ -133,6 +133,7 @@ def train_and_predict(train_df, target, test_df, id_column=None):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
+    # Salaries cannot be negative, so clamp to zero.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
@@ -149,6 +150,7 @@ def main():
     parser.add_argument("--train-target", type=str, default=None, help="Path to target CSV.")
     parser.add_argument("--test", type=str, default=None, help="Path to test CSV.")
     parser.add_argument("--output", type=str, default="submission.csv", help="Output CSV.")
+    parser.add_argument("--alpha", type=float, default=1.0, help="Ridge regularization.")
     args = parser.parse_args()
 
     base_dir = Path(".")
@@ -170,7 +172,9 @@ def main():
     test_df = pd.read_csv(test_path)
 
     id_col = _detect_id_column(test_df.columns)
-    ids, predictions = train_and_predict(x_train, y_train, test_df, id_col)
+    ids, predictions = train_and_predict(
+        x_train, y_train, test_df, id_col, alpha=args.alpha
+    )
 
     output_id_col = ids.name or id_col or "ID"
     submission = pd.DataFrame({output_id_col: ids, TARGET_COLUMN: predictions})
