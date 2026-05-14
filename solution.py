@@ -116,7 +116,12 @@ def _find_train_paths(base_dir, target_col):
             continue
         try:
             sample_cols = pd.read_csv(path, nrows=0).columns
-        except Exception:
+        except (
+            OSError,
+            pd.errors.EmptyDataError,
+            pd.errors.ParserError,
+            UnicodeDecodeError,
+        ):
             continue
         if target_col in sample_cols:
             return path, None
