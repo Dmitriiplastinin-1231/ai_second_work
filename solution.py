@@ -49,7 +49,7 @@ def _find_train_paths(base_dir, target_col):
         if path.name in {DEFAULT_TEST_FILE, "sample_submission.csv"}:
             continue
         try:
-            sample_cols = pd.read_csv(path, nrows=5).columns
+            sample_cols = pd.read_csv(path, nrows=0).columns
         except Exception:
             continue
         if target_col in sample_cols:
@@ -137,7 +137,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
         posinf=DEFAULT_PREDICTION,
         neginf=DEFAULT_PREDICTION,
     )
-    # Use zero as a safe lower bound for negative predictions.
+    # Salaries cannot be negative; clip to zero to keep outputs valid.
     predictions = np.clip(predictions, 0, None)
 
     ids = (
