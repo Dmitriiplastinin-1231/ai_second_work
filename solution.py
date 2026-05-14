@@ -43,6 +43,7 @@ def _detect_id_column(columns):
 
 
 def _filter_notebook_args(unknown_args):
+    """Filter out Jupyter kernel args and keep only real unknown arguments."""
     unrecognized_args = []
     skip_notebook_arg_value = False
     for index, arg in enumerate(unknown_args):
@@ -149,6 +150,7 @@ def _build_pipeline(text_cols, num_cols, alpha):
 
 
 def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
+    """Fit the model and return (ids, predictions) for the test set."""
     id_column = id_column or _detect_id_column(test_df.columns)
     drop_columns = [col for col in [id_column] if col in train_df.columns]
     x_train = train_df.drop(columns=drop_columns)
@@ -179,6 +181,7 @@ def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
 
 
 def main():
+    """CLI entry point for training a salary model and writing submissions."""
     parser = argparse.ArgumentParser(
         description="Train salary model and create submission."
     )
