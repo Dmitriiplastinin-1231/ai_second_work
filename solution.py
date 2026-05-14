@@ -12,6 +12,7 @@ from sklearn.preprocessing import FunctionTransformer
 
 TARGET_COLUMN = "salary_mean_net"
 DEFAULT_TEST_FILE = "test_x.csv"
+DEFAULT_PREDICTION = 0.0
 
 
 def _join_text_columns(frame):
@@ -126,10 +127,19 @@ def train_and_predict(train_df, target, test_df, id_column=None):
     model.fit(x_train, target)
 
     predictions = model.predict(x_test)
-    predictions = np.nan_to_num(predictions, nan=0.0, posinf=0.0, neginf=0.0)
+    predictions = np.nan_to_num(
+        predictions,
+        nan=DEFAULT_PREDICTION,
+        posinf=DEFAULT_PREDICTION,
+        neginf=DEFAULT_PREDICTION,
+    )
     predictions = np.clip(predictions, 0, None)
 
-    ids = test_df[id_column] if id_column else pd.Series(range(len(test_df)))
+    ids = (
+        test_df[id_column]
+        if id_column
+        else pd.Series(range(len(test_df)), name="ID")
+    )
     return ids, predictions
 
 
@@ -162,7 +172,8 @@ def main():
     id_col = _detect_id_column(test_df.columns)
     ids, predictions = train_and_predict(x_train, y_train, test_df, id_col)
 
-    submission = pd.DataFrame({id_col or "ID": ids, TARGET_COLUMN: predictions})
+    output_id_col = ids.name or id_col or "ID"
+    submission = pd.DataFrame({output_id_col: ids, TARGET_COLUMN: predictions})
     submission.to_csv(args.output, index=False)
     print(f"Saved submission to {args.output}")
 
