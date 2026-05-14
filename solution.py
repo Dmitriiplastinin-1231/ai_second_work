@@ -35,6 +35,7 @@ def _join_text_columns(frame):
 
 
 def _detect_id_column(columns):
+    """Find a likely ID column name from a list of columns."""
     for column in columns:
         column_lower = column.lower()
         if column_lower in {"id", "row_id"}:
@@ -63,6 +64,7 @@ def _filter_notebook_args(unknown_args):
 
 
 def _find_train_paths(base_dir, target_col):
+    """Locate training data files and return (train_path, target_path)."""
     preferred = [
         base_dir / "train.csv",
         base_dir / "train_data.csv",
@@ -90,6 +92,7 @@ def _find_train_paths(base_dir, target_col):
 
 
 def _load_training_data(train_path, target_path, target_col):
+    """Load training features and targets from CSV files."""
     if train_path is None:
         raise FileNotFoundError("Training data file was not found.")
 
@@ -116,6 +119,7 @@ def _load_training_data(train_path, target_path, target_col):
 
 
 def _build_pipeline(text_cols, num_cols, alpha):
+    """Build a preprocessing + Ridge regression pipeline."""
     transformers = []
 
     if text_cols:
