@@ -15,6 +15,7 @@ TARGET_COLUMN = "salary_mean_net"
 DEFAULT_TEST_FILE = "test_x.csv"
 DEFAULT_PREDICTION = 0.0
 MAX_TFIDF_FEATURES = 50000
+# Jupyter kernels pass connection-related arguments with these prefixes.
 NOTEBOOK_ARG_PREFIXES = (
     "--ip",
     "--stdin",
@@ -156,6 +157,8 @@ def _build_pipeline(text_cols, num_cols, alpha):
 def train_and_predict(train_df, target, test_df, id_column=None, alpha=1.0):
     """Fit the model and return (ids, predictions) for the test set."""
     id_column = id_column or _detect_id_column(test_df.columns)
+    if id_column and id_column not in test_df.columns:
+        id_column = None
     drop_columns = [col for col in [id_column] if col in train_df.columns]
     x_train = train_df.drop(columns=drop_columns)
     x_test = test_df.drop(columns=[id_column]) if id_column else test_df.copy()
@@ -202,7 +205,12 @@ def main():
         help="Path to separate target CSV (when features and labels are split).",
     )
     parser.add_argument("--test", type=str, default=None, help="Path to test CSV.")
-    parser.add_argument("--output", type=str, default="submission.csv", help="Output CSV.")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="submission.csv",
+        help="Path to output CSV file for predictions.",
+    )
     parser.add_argument(
         "--alpha",
         type=float,
