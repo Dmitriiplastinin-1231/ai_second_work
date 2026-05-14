@@ -176,8 +176,9 @@ def _load_training_data(train_path, target_path, target_col):
         y = train_y.iloc[:, 0]
     else:
         raise ValueError(
-            "Target file must contain a single column or "
-            f"'{target_col}', got {train_y.shape[1]} columns."
+            "Target file must contain either the column "
+            f"'{target_col}' or exactly one column, got "
+            f"{train_y.shape[1]} columns."
         )
     return train_x, y
 
@@ -332,7 +333,11 @@ def main():
         x_train, y_train, test_df, id_col, alpha=args.alpha
     )
 
-    output_id_col = ids.name or id_col or "ID"
+    output_id_col = (
+        ids.name
+        if ids.name not in (None, "")
+        else (id_col or "ID")
+    )
     submission = pd.DataFrame({output_id_col: ids, TARGET_COLUMN: predictions})
     output_path = Path(args.output)
     if args.output == "submission.csv" and KAGGLE_WORKING_DIR.exists():
